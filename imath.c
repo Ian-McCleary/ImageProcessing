@@ -3,6 +3,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 #define THREADS 4
 
@@ -87,6 +88,13 @@ PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned lon
 	
 
 	//read image format
+    int ofile = open(filename, O_RDONLY);
+    //read the width and height from the file. bytes should be changed to 3 when reading the rgb data
+    char c;
+    int b1, b2;
+    b1 = read(ofile, &c, sizeof(c));
+    b2 = read(ofile, &c, sizeof(c));
+    printf("%s %s", b1, b2);
 
 	//check the image format by reading the first two characters in filename and compare them to P6.
 
@@ -136,9 +144,18 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
  */
 int main(int argc, char *argv[])
 {
+    printf('%s', argv[0]);
+    if(argc != 1){
+        printf("Incorrect number of arguments, only 1 image path needed\n");
+        exit(0);
+    }
+
+    char* file_path = argv[1];
+
 	//load the image into the buffer
     unsigned long int w, h;
     double elapsedTime = 0.0;
+    readImage(file_path, w, h);
 
 	
 	return 0;

@@ -13,8 +13,14 @@
 #define RGB_MAX 255
 
 typedef struct {
-	 unsigned char r, g, b;
+	unsigned char r, g, b;
 } PPMPixel;
+
+typedef struct {
+    int x, y;
+    PPMPixel *data;
+} PPMImage;
+
 
 struct parameter {
 	PPMPixel *image;         //original image
@@ -81,25 +87,34 @@ void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned l
  Check the rgb component, if not 255, display error message.
  Return: pointer to PPMPixel that has the pixel data of the input image (filename)
  */
-PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned long int *height)
-{
+PPMImage *readImage(const char *filename, unsigned long int *width, unsigned long int *height){
 
-	PPMPixel *img;
-	
+
+	PPMImage *img;
+	char buff[16];
+    int c, rgb_comp_color;
+    FILE *fp;
 
 	//read image format
-    int ofile = open(filename, O_RDONLY);
-    //read the width and height from the file. bytes should be changed to 3 when reading the rgb data
-    char c;
-    int b1, b2;
-    b1 = read(ofile, &c, sizeof(c));
-    b2 = read(ofile, &c, sizeof(c));
-    printf("%s %s", b1, b2);
+    fp = fopen(filename, "rb");
+    if (!fp){
+        printf("Unable to open file %s\n", filename);
+        exit(1);
+    }
+
+    //read image format
+    if (!fgets(buff, sizeof(buff), fp)) {
+        perror(filename);
+        exit(1);
+    }
 
 	//check the image format by reading the first two characters in filename and compare them to P6.
+    if (buff[0] != 'P' || buff[1] != '6'){
+        printf("Invalid image format. Should be P6\n");
+        exit(1);
+    }
 
-
-	//If there are comments in the file, skip them. You may assume that comments exist only in the header block.
+	
 
 	
 	//read image size information
@@ -109,6 +124,58 @@ PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned lon
 	
     
     //allocate memory for img. NOTE: A ppm image of w=200 and h=300 will contain 60000 triplets (i.e. for r,g,b), ---> 18000 bytes.
+
+    //allocate memory for entire image based on ppmimage struct
+    img = (PPMImage *)malloc(sizeof(PPMImage));
+    if (!img){
+        printf("Memory allocation failed\n");
+        exit(1);
+    }
+    //If there are comments in the file, skip them. You may assume that comments exist only in the header block.
+    c = getc(fp);
+    while (c == '#'){
+        while (getc(fp) != '\n'){
+            c = getc(fp);
+        }
+    }
+
+    ungetc(c, fp);
+    //read image size information
+    
+    if (fscanf(fp, "%d %d", &img->x, &img->y) != 2) {
+        printf("Image size: %d, %d\n", img->x, img->y);
+        fprintf(stderr, "Invalid image size (error loading '%s')\n", filename);
+        exit(1);
+    }
+
+    //read rgb component
+    if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
+         fprintf(stderr, "Invalid rgb component (error loading '%s')\n", filename);
+         exit(1);
+    }
+
+    //check rgb component depth
+    if (rgb_comp_color!= 255) {
+         fprintf(stderr, "'%s' does not have 8-bits components\n", filename);
+         exit(1);
+    }
+
+    while (fgetc(fp) != '\n') ;
+    //memory allocation for pixel data
+    img->data = (PPMPixel*)malloc(img->x * img->y * sizeof(PPMPixel));
+
+    if (!img) {
+         fprintf(stderr, "Unable to allocate memory\n");
+         exit(1);
+    }
+
+    //read pixel data from file
+    if (fread(img->data, 3 * img->x, img->y, fp) != img->y) {
+         fprintf(stderr, "Error loading image '%s'\n", filename);
+         exit(1);
+    }
+
+    fclose(fp);
 
     //read pixel data from filename into img. The pixel data is stored in scanline order from left to right (up to bottom) in 3-byte chunks (r g b values for each pixel) encoded as binary numbers.
 
@@ -144,10 +211,10 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
  */
 int main(int argc, char *argv[])
 {
-    printf('%s', argv[0]);
-    if(argc != 1){
+    //printf("%d", argc);
+    if(argc != 2){
         printf("Incorrect number of arguments, only 1 image path needed\n");
-        exit(0);
+        exit(1);
     }
 
     char* file_path = argv[1];
@@ -155,7 +222,9 @@ int main(int argc, char *argv[])
 	//load the image into the buffer
     unsigned long int w, h;
     double elapsedTime = 0.0;
-    readImage(file_path, w, h);
+
+    PPMImage *image;
+    image = readImage(file_path, &w, &h);
 
 	
 	return 0;

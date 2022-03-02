@@ -1,0 +1,2 @@
+myshell: myshell.c argparse.c builtin.c
+	gcc -o myshell myshell.c argparse.c builtin.c -I -Wall. 

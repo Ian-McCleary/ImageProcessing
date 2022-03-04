@@ -132,14 +132,23 @@ PPMImage *readImage(const char *filename, unsigned long int *width, unsigned lon
         exit(1);
     }
     //If there are comments in the file, skip them. You may assume that comments exist only in the header block.
+    /*
     c = getc(fp);
     while (c == '#'){
         while (getc(fp) != '\n'){
             c = getc(fp);
         }
-    }
+    } 
 
     ungetc(c, fp);
+    */
+   //skip comments
+    c = getc(fp);
+    if (c == '#'){
+        printf("hash found\n");
+        fscanf(fp, "%*[^\n]");
+        //c = getc(fp);
+    }
     //read image size information
     
     if (fscanf(fp, "%d %d", &img->x, &img->y) != 2) {
@@ -147,6 +156,7 @@ PPMImage *readImage(const char *filename, unsigned long int *width, unsigned lon
         fprintf(stderr, "Invalid image size (error loading '%s')\n", filename);
         exit(1);
     }
+    printf("width: %d  Height: %d\n", img->x, img->y);
 
     //read rgb component
     if (fscanf(fp, "%d", &rgb_comp_color) != 1) {

@@ -63,7 +63,7 @@ void *threadfn(void *params)
  */
 void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned long int height)
 {
-
+  // i'm not certain where the name should be *image = "P6 \n width height \n 255 \n name here prob 
     
 }
 
@@ -135,8 +135,17 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     Read the image that is passed as an argument at runtime. Apply the filter. Print elapsed time in .3 precision (e.g. 0.006 s). Save the result image in a file called laplacian.ppm. Free allocated memory.
  */
 int main(int argc, char *argv[])
-{
+{  
+   if(argc != 2) {
+      printf("Usage ./a.out filename");// error message if not called the correct way
+      return 0;
+   }
+   
 	//load the image into the buffer
+    // PPMPixel *image =  *readImage(const char *filename, unsigned long int *width, unsigned long int *height) call should be here
+    
+    // writeImage(PPMPixel *result, argv[2], PPMPixel.w, PPMPixel.h)
+    
     unsigned long int w, h;
     double elapsedTime = 0.0;
 

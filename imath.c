@@ -56,49 +56,44 @@ void *threadfn(void *params)
     int y_coordinate;
 
     
-    for(iteratorImageHeight = start; iteratorImageHeight < (start + size); iteratorImageHeight++){
-      for(iteratorImageWidth = 0; iteratorImageWidth < imageWidth; iteratorImageWidth++){
-    
-    for(iteratorFilterHeight = 0; iteratorFilterHeight < FILTER_HEIGHT; iteratorFilterHeight++){
-      y_coordinate = (iteratorImageHeight - FILTER_HEIGHT / 2 + iteratorFilterHeight + imageHeight) % imageHeight;
-      for(iteratorFilterWidth = 0; iteratorFilterWidth < FILTER_WIDTH; iteratorFilterWidth++){
-         x_coordinate = (iteratorImageWidth - FILTER_WIDTH / 2 + iteratorFilterWidth + imageWidth) % imageWidth;
-         red+= image[y_coordinate * imageWidth + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-         green+= image[y_coordinate * imageWidth + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-         blue+= image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+    for(iteratorImageHeight = start; iteratorImageHeight < (start + size); iteratorImageHeight++){//y of image starting at point
+      for(iteratorImageWidth = 0; iteratorImageWidth < imageWidth; iteratorImageWidth++){//x of image 
+         for(iteratorFilterHeight = 0; iteratorFilterHeight < FILTER_HEIGHT; iteratorFilterHeight++){ //y of filter
+            y_coordinate = (iteratorImageHeight - FILTER_HEIGHT / 2 + iteratorFilterHeight + imageHeight) % imageHeight;
+            for(iteratorFilterWidth = 0; iteratorFilterWidth < FILTER_WIDTH; iteratorFilterWidth++){//x of filter
+               x_coordinate = (iteratorImageWidth - FILTER_WIDTH / 2 + iteratorFilterWidth + imageWidth) % imageWidth;
+               red+= image[y_coordinate * imageWidth + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               green+= image[y_coordinate * imageWidth + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               blue+= image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+      }
+    }
+         //confirming rgb is within min/max
+         if(red < 0){
+            red = 0; 
+         }else if(red > 255){
+            red = 255;
+         }
+         if(green < 0) {
+            green = 0;
+         }else if(green > 255){
+            green = 255;
+         }
+         if(blue < 0){
+            blue = 0;
+         }else if(blue > 255) {
+            blue = 255;
+         }
+         //storing result
+         result[start + i] = red
+         result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
+         result[interatorImageHeight * imageWidth + iteratorImageWidth].g = green;
+         result[interatorImageHeight * imageWidth + iteratorImageWidth].b = blue;    
+         red = 0;
+         green = 0;
+         blue = 0;
       }
     }
     
-    if(red < 0){
-      red = 0; 
-    }else if(red > 255){
-      red = 255;
-    }
-    if(green < 0) {
-      green = 0;
-    }else if(green > 255){
-      green = 255;
-    }
-    if(blue < 0){
-      blue = 0;
-    }else if(blue > 255) {
-      blue = 255;
-    }
-      result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
-      result[interatorImageHeight * imageWidth + iteratorImageWidth].g = green;
-      result[interatorImageHeight * imageWidth + iteratorImageWidth].b = blue;
-    
-    
-    }
-    }
-    
-    /*For all pixels in the work region of image (from start to start+size)
-      Multiply every value of the filter with corresponding image pixel. Note: this is NOT matrix multiplication.
-     
-     //truncate values smaller than zero and larger than 255
-      Store the new values of r,g,b in p->result.
-     */
-		
 	return NULL;
 }
 

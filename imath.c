@@ -56,10 +56,12 @@ void *threadfn(void *params)
      //truncate values smaller than zero and larger than 255
       Store the new values of r,g,b in p->result.
      */
-		
-	return NULL;
-}
+    struct parameter *p = (struct parameter*)params;
 
+    printf("inside thread function %d\n", p->start);
+		
+	pthread_exit(NULL);
+}
 
 /*Create a new P6 file to save the filtered image in. Write the header block
  e.g. P6
@@ -87,10 +89,11 @@ void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned l
  Check the rgb component, if not 255, display error message.
  Return: pointer to PPMPixel that has the pixel data of the input image (filename)
  */
-PPMImage *readImage(const char *filename, unsigned long int *width, unsigned long int *height){
+PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned long int *height){
 
 
 	PPMImage *img;
+    //PPMPixel *img2;
 	char buff[16];
     int c, rgb_comp_color;
     FILE *fp;
@@ -157,6 +160,8 @@ PPMImage *readImage(const char *filename, unsigned long int *width, unsigned lon
         exit(1);
     }
     printf("width: %d  Height: %d\n", img->x, img->y);
+    width = img->x;
+    height = img->y;
 
     //read rgb component
     if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
@@ -189,7 +194,7 @@ PPMImage *readImage(const char *filename, unsigned long int *width, unsigned lon
 
     //read pixel data from filename into img. The pixel data is stored in scanline order from left to right (up to bottom) in 3-byte chunks (r g b values for each pixel) encoded as binary numbers.
 
-	return img;
+	return img->data;
 }
 
 /* Create threads and apply filter to image.
@@ -200,13 +205,38 @@ PPMImage *readImage(const char *filename, unsigned long int *width, unsigned lon
 PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, double *elapsedTime) {
 
     PPMPixel *result;
+    double num_rows = w / THREADS;
+    int thread_rows = round(num_rows);
+
+    pthread_t *id[THREADS];
+
+    struct parameter *params[THREADS];
     //allocate memory for result
 
     //allocate memory for parameters (one for each thread)
 
+
     /*create threads and apply filter.
      For each thread, compute where to start its work.  Determine the size of the work. If the size is not even, the last thread shall take the rest of the work.
      */
+    
+    //divide work
+    int rc;
+    for(int i = 0; i < THREADS; i++){
+        params[i]->start = i * thread_rows;
+        params[i]->size = thread_rows;
+        params[i]->image = image;
+        params[i]->result = result;
+        params[i]->w = w;
+        params[i]->h = h;
+        printf("Creating thread, %d\n", i);
+        rc = pthread_create(&id[i], NULL, threadfn, (void *)&params[i]);
+        if (rc){
+            printf("Error unable to create thread, %d\n", rc);
+            exit(-1);
+        }
+    }
+    pthread_exit(NULL);
    
 
    //Let threads wait till they all finish their work.
@@ -235,6 +265,14 @@ int main(int argc, char *argv[])
 
     PPMImage *image;
     image = readImage(file_path, &w, &h);
+    printf("Im size: %d %d\n", w, h);
+    double *time;
+    apply_filters(image, w, h, time);
+    int size = w * h;
+    int i = 0;
+    //for(i = 0; i < size; i++){
+    //    printf('%c', &image + i * sizeof(PPMPixel));
+    //}
 
 	
 	return 0;

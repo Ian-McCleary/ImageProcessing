@@ -57,8 +57,9 @@ void *threadfn(void *params)
       Store the new values of r,g,b in p->result.
      */
     struct parameter *p = (struct parameter*)params;
-
-    printf("inside thread function %d\n", p->start);
+    unsigned long s = p->start;
+    int s1 = (int)s;
+    printf("inside thread function %d\n", s1);
 		
 	pthread_exit(NULL);
 }
@@ -145,7 +146,7 @@ PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned lon
 
     ungetc(c, fp);
     */
-   //skip comments
+   //skip comments (only skips 1 commnet, could be an issue)
     c = getc(fp);
     if (c == '#'){
         printf("hash found\n");
@@ -211,24 +212,25 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     pthread_t *id[THREADS];
 
     struct parameter *params[THREADS];
+    
     //allocate memory for result
-
-    //allocate memory for parameters (one for each thread)
-
-
-    /*create threads and apply filter.
-     For each thread, compute where to start its work.  Determine the size of the work. If the size is not even, the last thread shall take the rest of the work.
-     */
+    
     
     //divide work
     int rc;
     for(int i = 0; i < THREADS; i++){
+        //allocate memory for parameters (one for each thread). Need to free space afterwards.
+        params[i] = (struct parameter*)malloc(sizeof(struct parameter));
         params[i]->start = i * thread_rows;
         params[i]->size = thread_rows;
         params[i]->image = image;
         params[i]->result = result;
         params[i]->w = w;
         params[i]->h = h;
+
+        /*create threads and apply filter.
+        For each thread, compute where to start its work.  Determine the size of the work. If the size is not even, the last thread shall take the rest of the work.
+        */
         printf("Creating thread, %d\n", i);
         rc = pthread_create(&id[i], NULL, threadfn, (void *)&params[i]);
         if (rc){
@@ -236,10 +238,11 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
             exit(-1);
         }
     }
+    //Let threads wait till they all finish their work.
+    for(int x = 0; x < THREADS; x++){
+        pthread_join(id[x],NULL);
+    }
     pthread_exit(NULL);
-   
-
-   //Let threads wait till they all finish their work.
 
 
 	return result;
@@ -268,8 +271,8 @@ int main(int argc, char *argv[])
     printf("Im size: %d %d\n", w, h);
     double *time;
     apply_filters(image, w, h, time);
-    int size = w * h;
-    int i = 0;
+    //int size = w * h;
+    //int i = 0;
     //for(i = 0; i < size; i++){
     //    printf('%c', &image + i * sizeof(PPMPixel));
     //}

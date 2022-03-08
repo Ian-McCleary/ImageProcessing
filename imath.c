@@ -56,15 +56,15 @@ void *threadfn(void *params)
     int y_coordinate;
 
     
-    for(iteratorImageHeight = start; iteratorImageHeight < (start + size); iteratorImageHeight++){//y of image starting at point
+    for(iteratorImageHeight = params.start; iteratorImageHeight < (params.start + params.size); iteratorImageHeight++){//y of image starting at point
       for(iteratorImageWidth = 0; iteratorImageWidth < imageWidth; iteratorImageWidth++){//x of image 
          for(iteratorFilterHeight = 0; iteratorFilterHeight < FILTER_HEIGHT; iteratorFilterHeight++){ //y of filter
             y_coordinate = (iteratorImageHeight - FILTER_HEIGHT / 2 + iteratorFilterHeight + imageHeight) % imageHeight;
             for(iteratorFilterWidth = 0; iteratorFilterWidth < FILTER_WIDTH; iteratorFilterWidth++){//x of filter
                x_coordinate = (iteratorImageWidth - FILTER_WIDTH / 2 + iteratorFilterWidth + imageWidth) % imageWidth;
-               red+= image[y_coordinate * imageWidth + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-               green+= image[y_coordinate * imageWidth + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-               blue+= image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               red+= params.image[y_coordinate * imageWidth + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               green+= params.image[y_coordinate * imageWidth + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               blue+= params.image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
       }
     }
          //confirming rgb is within min/max
@@ -84,10 +84,9 @@ void *threadfn(void *params)
             blue = 255;
          }
          //storing result
-         result[start + i] = red
-         result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
-         result[interatorImageHeight * imageWidth + iteratorImageWidth].g = green;
-         result[interatorImageHeight * imageWidth + iteratorImageWidth].b = blue;    
+         params.result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
+         params.result[iteratorImageHeight * imageWidth + iteratorImageWidth].g = green;
+         params.result[iteratorImageHeight * imageWidth + iteratorImageWidth].b = blue;    
          red = 0;
          green = 0;
          blue = 0;
@@ -107,8 +106,15 @@ void *threadfn(void *params)
  */
 void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned long int height)
 {
-
-    
+    FILE* fp = fopen(name, "w+");
+    char header[] = "p6\n";
+    strcat(header, width);
+    strcat(header, height);
+    strcat(header,"\n255\n");
+    fwrite(header, 1, sizeof(header), fp);
+    fwrite(image, 1, sizeof(image), fp);
+    fclose(fp);
+    return NULL;
 }
 
 /* Open the filename image for reading, and parse it.

@@ -56,10 +56,11 @@ void *threadfn(void *params)
      //truncate values smaller than zero and larger than 255
       Store the new values of r,g,b in p->result.
      */
-    struct parameter *p = (struct parameter*)params;
-    unsigned long s = p->start;
-    int s1 = (int)s;
-    printf("inside thread function %d\n", s1);
+    struct parameter *p;
+    p = (struct parameter*)params;
+    unsigned long int s;
+    s = p->start;
+    printf("inside thread function %d\n", (*p).start);
 		
 	pthread_exit(NULL);
 }
@@ -90,7 +91,7 @@ void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned l
  Check the rgb component, if not 255, display error message.
  Return: pointer to PPMPixel that has the pixel data of the input image (filename)
  */
-PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned long int *height){
+PPMPixel *readImage(const char *filename, unsigned long int **width, unsigned long int **height){
 
 
 	PPMImage *img;
@@ -117,16 +118,6 @@ PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned lon
         printf("Invalid image format. Should be P6\n");
         exit(1);
     }
-
-	
-
-	
-	//read image size information
-	
-
-	//Read rgb component. Check if it is equal to RGB_MAX. If  not, display error message.
-	
-    
     //allocate memory for img. NOTE: A ppm image of w=200 and h=300 will contain 60000 triplets (i.e. for r,g,b), ---> 18000 bytes.
 
     //allocate memory for entire image based on ppmimage struct
@@ -136,16 +127,6 @@ PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned lon
         exit(1);
     }
     //If there are comments in the file, skip them. You may assume that comments exist only in the header block.
-    /*
-    c = getc(fp);
-    while (c == '#'){
-        while (getc(fp) != '\n'){
-            c = getc(fp);
-        }
-    } 
-
-    ungetc(c, fp);
-    */
    //skip comments (only skips 1 commnet, could be an issue)
     c = getc(fp);
     if (c == '#'){
@@ -161,8 +142,13 @@ PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned lon
         exit(1);
     }
     printf("width: %d  Height: %d\n", img->x, img->y);
-    width = img->x;
-    height = img->y;
+
+    *width = malloc(sizeof(unsigned long int));
+    *height = malloc(sizeof(unsigned long int));
+
+    **width = (unsigned long int)img->x;
+    **height = (unsigned long int)img->y;
+    printf("Conversion w, h: %d %d\n", **width, **height);
 
     //read rgb component
     if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
@@ -203,36 +189,40 @@ PPMPixel *readImage(const char *filename, unsigned long int *width, unsigned lon
  Compute the elapsed time and store it in *elapsedTime (Read about gettimeofday).
  Return: result (filtered image)
  */
-PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, double *elapsedTime) {
+PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, double **elapsedTime) {
 
     PPMPixel *result;
     double num_rows = w / THREADS;
     int thread_rows = round(num_rows);
 
     pthread_t *id[THREADS];
-
-    struct parameter *params[THREADS];
-    
     //allocate memory for result
+    result = malloc(sizeof(PPMPixel));
+
+    *elapsedTime = malloc(sizeof(double));
+    struct timeval startTime, endTime;
+    gettimeofday(&startTime, NULL);
+
     
     
+    struct parameter *item;
     //divide work
     int rc;
     for(int i = 0; i < THREADS; i++){
         //allocate memory for parameters (one for each thread). Need to free space afterwards.
-        params[i] = (struct parameter*)malloc(sizeof(struct parameter));
-        params[i]->start = i * thread_rows;
-        params[i]->size = thread_rows;
-        params[i]->image = image;
-        params[i]->result = result;
-        params[i]->w = w;
-        params[i]->h = h;
-
+        item = malloc(sizeof(struct parameter));
+        (*item).start = i * thread_rows;
+        (*item).size = thread_rows;
+        (*item).image = image;
+        (*item).result = result;
+        (*item).w = w;
+        (*item).h = h;
+        printf("Start: %d\n", (*item).start);
         /*create threads and apply filter.
         For each thread, compute where to start its work.  Determine the size of the work. If the size is not even, the last thread shall take the rest of the work.
         */
         printf("Creating thread, %d\n", i);
-        rc = pthread_create(&id[i], NULL, threadfn, (void *)&params[i]);
+        rc = pthread_create(&id[i], NULL, threadfn, (void *)item);
         if (rc){
             printf("Error unable to create thread, %d\n", rc);
             exit(-1);
@@ -241,8 +231,13 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     //Let threads wait till they all finish their work.
     for(int x = 0; x < THREADS; x++){
         pthread_join(id[x],NULL);
+        printf("Thread %d joined\n", x);
     }
-    pthread_exit(NULL);
+    gettimeofday(&endTime, NULL);
+    double tt = (double)(endTime.tv_usec - startTime.tv_usec);
+    double bro = tt/1000;
+    **elapsedTime = bro;
+    //pthread_exit(NULL);
 
 
 	return result;
@@ -260,23 +255,20 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    //load the image into the buffer
     char* file_path = argv[1];
 
-	//load the image into the buffer
-    unsigned long int w, h;
-    double elapsedTime = 0.0;
+    unsigned long int* width;
+    unsigned long int* height;
+
+    double *elapsedTime;
 
     PPMImage *image;
-    image = readImage(file_path, &w, &h);
-    printf("Im size: %d %d\n", w, h);
-    double *time;
-    apply_filters(image, w, h, time);
-    //int size = w * h;
-    //int i = 0;
-    //for(i = 0; i < size; i++){
-    //    printf('%c', &image + i * sizeof(PPMPixel));
-    //}
+    image = readImage(file_path, &width, &height);
+    printf("Size after function call: %d %d\n", *width, *height);
 
+    apply_filters(image->data, *width, *height, &elapsedTime);
+    printf("Total time: %g seconds\n", *elapsedTime);
 	
 	return 0;
 }

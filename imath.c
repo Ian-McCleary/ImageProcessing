@@ -38,8 +38,14 @@ struct parameter {
     (3) The results are summed together to yield a single output value that is placed in the output image at the location of the pixel being processed on the input.
  
  */
-void *threadfn(void *params)
+void *threadfn(void *para)
 {
+
+    struct parameter *params;
+    params = (struct parameter*)para;
+    unsigned long int s;
+    s = params->start;
+    printf("inside thread function %d\n", (*params).start);
 	
 	int laplacian[FILTER_WIDTH][FILTER_HEIGHT] =
 	{
@@ -48,23 +54,23 @@ void *threadfn(void *params)
 	  -1, -1, -1,
 	};
    
-    int imageWidth = params.w;
-    int imageHeight = params.h;
+    int imageWidth = (*params).w;
+    int imageHeight = (*params).h;
     int red, green, blue;
     int iteratorFilterWidth, iteratorFilterHeight, iteratorImageWidth, iteratorImageHeight;
     int x_coordinate;
     int y_coordinate;
 
     
-    for(iteratorImageHeight = params.start; iteratorImageHeight < (params.start + params.size); iteratorImageHeight++){//y of image starting at point
+    for(iteratorImageHeight = (*params).start; iteratorImageHeight < ((*params).start + (*params).size); iteratorImageHeight++){//y of image starting at point
       for(iteratorImageWidth = 0; iteratorImageWidth < imageWidth; iteratorImageWidth++){//x of image 
          for(iteratorFilterHeight = 0; iteratorFilterHeight < FILTER_HEIGHT; iteratorFilterHeight++){ //y of filter
             y_coordinate = (iteratorImageHeight - FILTER_HEIGHT / 2 + iteratorFilterHeight + imageHeight) % imageHeight;
             for(iteratorFilterWidth = 0; iteratorFilterWidth < FILTER_WIDTH; iteratorFilterWidth++){//x of filter
                x_coordinate = (iteratorImageWidth - FILTER_WIDTH / 2 + iteratorFilterWidth + imageWidth) % imageWidth;
-               red+= params.image[y_coordinate * imageWidth + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-               green+= params.image[y_coordinate * imageWidth + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-               blue+= params.image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               red+= (*params).image[y_coordinate * imageWidth + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               green+= (*params).image[y_coordinate * imageWidth + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               blue+= (*params).image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
       }
     }
          //confirming rgb is within min/max
@@ -84,14 +90,15 @@ void *threadfn(void *params)
             blue = 255;
          }
          //storing result
-         params.result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
-         params.result[iteratorImageHeight * imageWidth + iteratorImageWidth].g = green;
-         params.result[iteratorImageHeight * imageWidth + iteratorImageWidth].b = blue;    
+         (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
+         (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].g = green;
+         (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].b = blue;    
          red = 0;
          green = 0;
          blue = 0;
       }
     }
+    printf("finished iteration\n");
     
 
     /*For all pixels in the work region of image (from start to start+size)
@@ -100,11 +107,7 @@ void *threadfn(void *params)
      //truncate values smaller than zero and larger than 255
       Store the new values of r,g,b in p->result.
      */
-    struct parameter *p;
-    p = (struct parameter*)params;
-    unsigned long int s;
-    s = p->start;
-    printf("inside thread function %d\n", (*p).start);
+
 		
 	pthread_exit(NULL);
 
@@ -204,68 +207,6 @@ PPMPixel *readImage(const char *filename, unsigned long int **width, unsigned lo
     **width = (unsigned long int)img->x;
     **height = (unsigned long int)img->y;
     printf("Conversion w, h: %d %d\n", **width, **height);
-
-    //read rgb component
-    if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
-         fprintf(stderr, "Invalid rgb component (error loading '%s')\n", filename);
-         exit(1);
-    }
-
-    //check rgb component depth
-    if (rgb_comp_color!= 255) {
-         fprintf(stderr, "'%s' does not have 8-bits components\n", filename);
-         exit(1);
-    }
-
-    while (fgetc(fp) != '\n') ;
-    //memory allocation for pixel data
-    img->data = (PPMPixel*)malloc(img->x * img->y * sizeof(PPMPixel));
-
-    if (!img) {
-         fprintf(stderr, "Unable to allocate memory\n");
-         exit(1);
-    }
-
-    //read pixel data from file
-    if (fread(img->data, 3 * img->x, img->y, fp) != img->y) {
-         fprintf(stderr, "Error loading image '%s'\n", filename);
-         exit(1);
-    }
-
-    fclose(fp);
-
-    //allocate memory for entire image based on ppmimage struct
-    img = (PPMImage *)malloc(sizeof(PPMImage));
-    if (!img){
-        printf("Memory allocation failed\n");
-        exit(1);
-    }
-    //If there are comments in the file, skip them. You may assume that comments exist only in the header block.
-    /*
-    c = getc(fp);
-    while (c == '#'){
-        while (getc(fp) != '\n'){
-            c = getc(fp);
-        }
-    } 
-
-    ungetc(c, fp);
-    */
-   //skip comments
-    c = getc(fp);
-    if (c == '#'){
-        printf("hash found\n");
-        fscanf(fp, "%*[^\n]");
-        //c = getc(fp);
-    }
-    //read image size information
-    
-    if (fscanf(fp, "%d %d", &img->x, &img->y) != 2) {
-        printf("Image size: %d, %d\n", img->x, img->y);
-        fprintf(stderr, "Invalid image size (error loading '%s')\n", filename);
-        exit(1);
-    }
-    printf("width: %d  Height: %d\n", img->x, img->y);
 
     //read rgb component
     if (fscanf(fp, "%d", &rgb_comp_color) != 1) {

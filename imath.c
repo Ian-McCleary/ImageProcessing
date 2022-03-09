@@ -12,6 +12,10 @@
 
 #define RGB_MAX 255
 
+/*  Tom Mclaughlin
+    Ian McCleary
+*/
+
 typedef struct {
 	unsigned char r, g, b;
 } PPMPixel;

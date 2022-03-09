@@ -38,13 +38,10 @@ struct parameter {
     (3) The results are summed together to yield a single output value that is placed in the output image at the location of the pixel being processed on the input.
  
  */
-void *threadfn(void *para)
-{
+void *threadfn(void *para){
     //cast struct to void *
     struct parameter *params;
     params = (struct parameter*)para;
-    unsigned long int s;
-    s = params->start;
 
     int laplacian[FILTER_WIDTH][FILTER_HEIGHT] =
 	{
@@ -107,7 +104,6 @@ void *threadfn(void *para)
       }
     }
 	pthread_exit(NULL);
-
 }
 
 /*Create a new P6 file to save the filtered image in. Write the header block
@@ -117,13 +113,14 @@ void *threadfn(void *para)
  then write the image data.
  The name of the new file shall be "name" (the second argument).
  */
-void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned long int height)
-{
+
+void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned long int height){
+
     FILE* fp = fopen(name, "w+");
     fprintf(fp, "P6\n%lu %lu\n255\n", width, height);
     fwrite(image, 1, sizeof(PPMPixel)* width * height, fp);
     fclose(fp);
-    return NULL;
+    return;
 }
 
 /* Open the filename image for reading, and parse it.
@@ -142,7 +139,6 @@ void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned l
 
 PPMPixel *readImage(const char *filename, unsigned long int **width, unsigned long int **height){
 
-
 	PPMImage *img;
     //PPMPixel *img2;
 
@@ -156,7 +152,6 @@ PPMPixel *readImage(const char *filename, unsigned long int **width, unsigned lo
         printf("Unable to open file %s\n", filename);
         exit(1);
     }
-
 
     //read image format
     if (!fgets(buff, sizeof(buff), fp)) {
@@ -187,7 +182,7 @@ PPMPixel *readImage(const char *filename, unsigned long int **width, unsigned lo
     
     if (fscanf(fp, "%d %d", &img->x, &img->y) != 2) {
         printf("Image size: %d, %d\n", img->x, img->y);
-        fprintf(stderr, "Invalid image size\n", filename);
+        fprintf(stderr, "Invalid image size\n");
         exit(1);
     }
 
@@ -199,13 +194,13 @@ PPMPixel *readImage(const char *filename, unsigned long int **width, unsigned lo
 
     //read rgb component
     if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
-         fprintf(stderr, "Invalid rgb component\n", filename);
+         fprintf(stderr, "Invalid rgb component\n");
          exit(1);
     }
 
     //check rgb component depth
     if (rgb_comp_color!= 255) {
-         fprintf(stderr, "'%s' does not have 8-bits components\n", filename);
+         fprintf(stderr, "Does not have 8-bits components\n");
          exit(1);
     }
 
@@ -267,7 +262,7 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
         /*create threads and apply filter.
         For each thread, compute where to start its work.  Determine the size of the work. If the size is not even, the last thread shall take the rest of the work.
         */
-        rc = pthread_create(&id[i], NULL, threadfn, &params[i]);
+        rc = pthread_create((pthread_t *)&id[i], NULL, threadfn, &params[i]);
         if (rc){
             printf("Error unable to create thread, %d\n", rc);
             exit(-1);
@@ -275,24 +270,24 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     }
     //Let threads wait till they all finish their work.
     for(int x = 0; x < THREADS; x++){
-        pthread_join(id[x],NULL);
+        pthread_join((pthread_t)id[x], NULL);
     }
     //end time caulculation
     gettimeofday(&endTime, NULL);
     double tt = (double)(endTime.tv_usec - startTime.tv_usec);
-    double bro = tt/1000000;
+    double t1 = trunc(tt/1000);
+    double bro = t1/1000;
     **elapsedTime = bro;
+    //free parameters
     free(params);
 	return result;
 }
 
-
 /*The driver of the program. Check for the correct number of arguments. If wrong print the message: "Usage ./a.out filename"
     Read the image that is passed as an argument at runtime. Apply the filter. Print elapsed time in .3 precision (e.g. 0.006 s). Save the result image in a file called laplacian.ppm. Free allocated memory.
  */
-int main(int argc, char *argv[])
-{
-    //printf("%d", argc);
+int main(int argc, char *argv[]){
+
     if(argc != 2){
         printf("Incorrect number of arguments, only 1 image path needed\n");
         exit(1);
@@ -300,6 +295,7 @@ int main(int argc, char *argv[])
 
     //load the image into the buffer
     char* file_path = argv[1];
+    char* outfile = "laplacian.ppm";
 
     unsigned long int* width;
     unsigned long int* height;
@@ -309,11 +305,11 @@ int main(int argc, char *argv[])
     PPMPixel *image;
     PPMPixel *result;
     image = readImage(file_path, &width, &height);
-    char* outfile = "laplacian.ppm";
 
     result = apply_filters(image, *width, *height, &elapsedTime);
     printf("Total time: %g seconds\n", *elapsedTime);
     writeImage(result, outfile, *width, *height);
+    //free memory
     free(image);
     free(result);
 	

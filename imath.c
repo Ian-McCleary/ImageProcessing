@@ -40,14 +40,13 @@ struct parameter {
  */
 void *threadfn(void *para)
 {
-
+    //cast struct to void *
     struct parameter *params;
     params = (struct parameter*)para;
     unsigned long int s;
     s = params->start;
-    printf("inside thread function %d\n", (*params).start);
-	
-	int laplacian[FILTER_WIDTH][FILTER_HEIGHT] =
+
+    int laplacian[FILTER_WIDTH][FILTER_HEIGHT] =
 	{
 	  -1, -1, -1,
 	  -1,  8, -1,
@@ -62,15 +61,20 @@ void *threadfn(void *para)
     int y_coordinate;
 
     
-    for(iteratorImageHeight = (*params).start; iteratorImageHeight < ((*params).start + (*params).size); iteratorImageHeight++){//y of image starting at point
+    for(iteratorImageHeight = (*params).start; iteratorImageHeight < ((*params).start + (*params).size); iteratorImageHeight++){ //y of image starting at point
+
       for(iteratorImageWidth = 0; iteratorImageWidth < imageWidth; iteratorImageWidth++){//x of image 
+
          for(iteratorFilterHeight = 0; iteratorFilterHeight < FILTER_HEIGHT; iteratorFilterHeight++){ //y of filter
+
             y_coordinate = (iteratorImageHeight - FILTER_HEIGHT / 2 + iteratorFilterHeight + imageHeight) % imageHeight;
+
             for(iteratorFilterWidth = 0; iteratorFilterWidth < FILTER_WIDTH; iteratorFilterWidth++){//x of filter
+                
                x_coordinate = (iteratorImageWidth - FILTER_WIDTH / 2 + iteratorFilterWidth + imageWidth) % imageWidth;
                red+= (*params).image[y_coordinate * imageWidth + x_coordinate].r * laplacian[iteratorFilterHeight][iteratorFilterWidth];
                green+= (*params).image[y_coordinate * imageWidth + x_coordinate].g * laplacian[iteratorFilterHeight][iteratorFilterWidth];
-               blue+= (*params).image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];
+               blue+= (*params).image[y_coordinate * imageWidth + x_coordinate].b * laplacian[iteratorFilterHeight][iteratorFilterWidth];     
       }
     }
          //confirming rgb is within min/max
@@ -90,25 +94,18 @@ void *threadfn(void *para)
             blue = 255;
          }
          //storing result
-         (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
-         (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].g = green;
-         (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].b = blue;    
+         if (iteratorImageHeight * imageWidth + iteratorImageWidth > imageHeight * imageWidth){
+             break;
+         } else{
+            (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].r = red;
+            (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].g = green;
+            (*params).result[iteratorImageHeight * imageWidth + iteratorImageWidth].b = blue;
+         }
          red = 0;
          green = 0;
          blue = 0;
       }
     }
-    printf("finished iteration\n");
-    
-
-    /*For all pixels in the work region of image (from start to start+size)
-      Multiply every value of the filter with corresponding image pixel. Note: this is NOT matrix multiplication.
-     
-     //truncate values smaller than zero and larger than 255
-      Store the new values of r,g,b in p->result.
-     */
-
-		
 	pthread_exit(NULL);
 
 }
@@ -123,12 +120,8 @@ void *threadfn(void *para)
 void writeImage(PPMPixel *image, char *name, unsigned long int width, unsigned long int height)
 {
     FILE* fp = fopen(name, "w+");
-    char header[] = "p6\n";
-    strcat(header, width);
-    strcat(header, height);
-    strcat(header,"\n255\n");
-    fwrite(header, 1, sizeof(header), fp);
-    fwrite(image, 1, sizeof(image), fp);
+    fprintf(fp, "P6\n%lu %lu\n255\n", width, height);
+    fwrite(image, 1, sizeof(PPMPixel)* width * height, fp);
     fclose(fp);
     return NULL;
 }
@@ -188,29 +181,25 @@ PPMPixel *readImage(const char *filename, unsigned long int **width, unsigned lo
    //skip comments (only skips 1 commnet, could be an issue)
     c = getc(fp);
     if (c == '#'){
-        printf("hash found\n");
         fscanf(fp, "%*[^\n]");
-        //c = getc(fp);
     }
     //read image size information
     
     if (fscanf(fp, "%d %d", &img->x, &img->y) != 2) {
         printf("Image size: %d, %d\n", img->x, img->y);
-        fprintf(stderr, "Invalid image size (error loading '%s')\n", filename);
+        fprintf(stderr, "Invalid image size\n", filename);
         exit(1);
     }
-    printf("width: %d  Height: %d\n", img->x, img->y);
 
     *width = malloc(sizeof(unsigned long int));
     *height = malloc(sizeof(unsigned long int));
 
     **width = (unsigned long int)img->x;
     **height = (unsigned long int)img->y;
-    printf("Conversion w, h: %d %d\n", **width, **height);
 
     //read rgb component
     if (fscanf(fp, "%d", &rgb_comp_color) != 1) {
-         fprintf(stderr, "Invalid rgb component (error loading '%s')\n", filename);
+         fprintf(stderr, "Invalid rgb component\n", filename);
          exit(1);
     }
 
@@ -251,36 +240,34 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
 
     PPMPixel *result;
     double num_rows = w / THREADS;
-    int thread_rows = round(num_rows);
+    int thread_rows = num_rows;
 
     pthread_t *id[THREADS];
+
+    struct parameter *params;
+    //allocate memory for parameters (one for each thread). Need to free space afterwards.
+    params = malloc(sizeof(struct parameter)*THREADS);
     //allocate memory for result
-    result = malloc(sizeof(PPMPixel));
+    result = malloc(sizeof(PPMPixel) * w * h);
 
     *elapsedTime = malloc(sizeof(double));
     struct timeval startTime, endTime;
     gettimeofday(&startTime, NULL);
 
-    
-    
-    struct parameter *item;
     //divide work
     int rc;
     for(int i = 0; i < THREADS; i++){
-        //allocate memory for parameters (one for each thread). Need to free space afterwards.
-        item = malloc(sizeof(struct parameter));
-        (*item).start = i * thread_rows;
-        (*item).size = thread_rows;
-        (*item).image = image;
-        (*item).result = result;
-        (*item).w = w;
-        (*item).h = h;
-        printf("Start: %d\n", (*item).start);
+        
+        params[i].start = i *thread_rows;
+        params[i].size = thread_rows;
+        params[i].image = image;
+        params[i].result = result;
+        params[i].w = w;
+        params[i].h = h;
         /*create threads and apply filter.
         For each thread, compute where to start its work.  Determine the size of the work. If the size is not even, the last thread shall take the rest of the work.
         */
-        printf("Creating thread, %d\n", i);
-        rc = pthread_create(&id[i], NULL, threadfn, (void *)item);
+        rc = pthread_create(&id[i], NULL, threadfn, &params[i]);
         if (rc){
             printf("Error unable to create thread, %d\n", rc);
             exit(-1);
@@ -289,15 +276,13 @@ PPMPixel *apply_filters(PPMPixel *image, unsigned long w, unsigned long h, doubl
     //Let threads wait till they all finish their work.
     for(int x = 0; x < THREADS; x++){
         pthread_join(id[x],NULL);
-        printf("Thread %d joined\n", x);
     }
+    //end time caulculation
     gettimeofday(&endTime, NULL);
     double tt = (double)(endTime.tv_usec - startTime.tv_usec);
-    double bro = tt/1000;
+    double bro = tt/1000000;
     **elapsedTime = bro;
-    //pthread_exit(NULL);
-
-
+    free(params);
 	return result;
 }
 
@@ -313,7 +298,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-
     //load the image into the buffer
     char* file_path = argv[1];
 
@@ -322,12 +306,16 @@ int main(int argc, char *argv[])
 
     double *elapsedTime;
 
-    PPMImage *image;
+    PPMPixel *image;
+    PPMPixel *result;
     image = readImage(file_path, &width, &height);
-    printf("Size after function call: %d %d\n", *width, *height);
+    char* outfile = "laplacian.ppm";
 
-    apply_filters(image->data, *width, *height, &elapsedTime);
+    result = apply_filters(image, *width, *height, &elapsedTime);
     printf("Total time: %g seconds\n", *elapsedTime);
+    writeImage(result, outfile, *width, *height);
+    free(image);
+    free(result);
 	
 	return 0;
 }
